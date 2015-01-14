@@ -12,10 +12,11 @@ cp -r ocropy/ocrolib .
 rm -rf ocropy
 ```
 
-To try the Reber Grammar example, you should just be able to run:
+To try the [Reber Grammar][2] example, you should just be able to run:
 
 ```
 ./reber.py
 ```
 
 [1]: https://github.com/tmbdev/ocropy/
+[2]: http://www.willamette.edu/~gorr/classes/cs449/reber.html
