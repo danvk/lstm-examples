@@ -100,21 +100,50 @@ def error_rate(network, xss, yss):
     return errs
 
 
+def mse(network, xss, yss):
+    loss = 0
+    for xs, ys in zip(xss, yss):
+        outs = network.predict(xs)
+        errs = outs - ys
+        loss += (errs * errs).sum() / outs.shape[0]
+    return loss
+
+
 if __name__ == '__main__':
     network = ocrolib.lstm.LSTM(len(SYMS), len(SYMS))  # 7 --> 7
-    network.setLearningRate(0.01)
+    alpha = 0.1
+    alpha_decay = 0.9999
+    #network.init_weights(0.2)
 
-    test_seqs = [make_embedded_reber() for i in range(0, 20)]
+    # Initialize gate weights to negative numbers, ala the LSTM paper.
+    network.WGI[:,0] = np.linspace(-1.0, -3.0, network.WGI.shape[0])
+    network.WGO[:,0] = network.WGI[:,0]
+    network.WGF[:,0] = -network.WGI[:,0]
+
+    test_seqs = [make_embedded_reber() for i in range(0, 50)]
     test_xs = [str_to_vec(seq) for seq in test_seqs]
     test_ys = [str_to_next_embedded(seq) for seq in test_seqs]
 
-    for i in range(0, 20000):
+    #train_seqs = [make_embedded_reber() for i in range(0, 250)]
+    #train_xs = [str_to_vec(seq) for seq in train_seqs]
+    #train_ys = [str_to_next_embedded(seq) for seq in train_seqs]
+
+    for i in range(0, 50000):
+        #ni = i % len(train_seqs)
+        #seq, xs, ys = train_seqs[ni], train_xs[ni], train_ys[ni]
         seq = make_embedded_reber()
         xs = str_to_vec(seq)
         ys = str_to_next_embedded(seq)
+        network.setLearningRate(alpha)
         network.train(xs, ys)
+        alpha *= alpha_decay
         if i % 1000 == 1:
-            print '%5d iterations, %d errors' % (i, error_rate(network, test_xs, test_ys))
+            #print '%5d iterations, %d errors' % (i, error_rate(network, test_xs, test_ys))
+            print '%5d iterations, %g MSE, %d errors (%d runs)' % (
+                    i,
+                    mse(network, test_xs, test_ys),
+                    error_rate(network, test_xs, test_ys), len(test_seqs))
+            ocrolib.save_object('/tmp/model-%06d.model.gz', network)
 
     for seq, xs, ys in zip(test_seqs, test_xs, test_ys):
         outs = network.predict(xs) > 0.5
