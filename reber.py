@@ -124,6 +124,14 @@ if __name__ == '__main__':
     test_xs = [str_to_vec(seq) for seq in test_seqs]
     test_ys = [str_to_next_embedded(seq) for seq in test_seqs]
 
+    def print_stats():
+        mse_ = mse(network, test_xs, test_ys)
+        print '%5d iterations, %g MSE, %d errors (%d runs)' % (
+                i,
+                mse_,
+                error_rate(network, test_xs, test_ys), len(test_seqs))
+        return mse_
+
     #train_seqs = [make_embedded_reber() for i in range(0, 250)]
     #train_xs = [str_to_vec(seq) for seq in train_seqs]
     #train_ys = [str_to_next_embedded(seq) for seq in train_seqs]
@@ -139,12 +147,10 @@ if __name__ == '__main__':
         alpha *= alpha_decay
         if i % 1000 == 1:
             #print '%5d iterations, %d errors' % (i, error_rate(network, test_xs, test_ys))
-            print '%5d iterations, %g MSE, %d errors (%d runs)' % (
-                    i,
-                    mse(network, test_xs, test_ys),
-                    error_rate(network, test_xs, test_ys), len(test_seqs))
-            ocrolib.save_object('/tmp/model-%06d.model.gz', network)
+            current_mse = print_stats()
+            ocrolib.save_object('/tmp/model-%06d.model.gz' % i, network)
 
+    ocrolib.save_object('/tmp/model-final.model.gz', network)
     for seq, xs, ys in zip(test_seqs, test_xs, test_ys):
         outs = network.predict(xs) > 0.5
         errs = np.abs(outs - ys).sum()
@@ -152,3 +158,4 @@ if __name__ == '__main__':
         if errs > 0:
             print '  %s' % vec_to_str(ys)
             print '  %s' % vec_to_str(outs)
+    print_stats()
