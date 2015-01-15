@@ -17,7 +17,8 @@ TRANSITIONS = [
 ]
 
 # Symbol encoding
-SYMS = {'T': 0, 'P': 1, 'X': 2, 'S': 3, 'V': 4, 'B': 5, 'E': 6}
+IDX_TO_SYM = ['T', 'P', 'X', 'S', 'V', 'B', 'E']
+SYMS = dict((c, i) for i, c in enumerate(IDX_TO_SYM))
 
 # See http://www.willamette.edu/~gorr/classes/cs449/reber.html
 def make_reber():
@@ -63,11 +64,10 @@ def str_to_next(s):
 
 def vec_to_str(xs):
     """Given a matrix, return a Reber string (with choices)."""
-    idx_to_sym = dict((v,k) for k,v in SYMS.iteritems())
     out = ''
     for i in range(0, xs.shape[0]):
         vs = np.nonzero(xs[i,:])[0]
-        chars = [idx_to_sym[v] for v in vs]
+        chars = [IDX_TO_SYM[v] for v in vs]
         if len(chars) == 1:
             out += chars[0]
         else:
@@ -77,27 +77,49 @@ def vec_to_str(xs):
 
 def str_to_next_embedded(s):
     """Like str_to_next, but for the Embedded Reber grammar."""
+    xs = np.zeros((len(s), len(SYMS)))
+    assert s[0] == 'B'
+    assert s[-1] == 'E'
+    assert s[1] in ['T', 'P']
+    assert s[-2] == s[1]
+
+    xs[2:-2,:] = str_to_next(s[2:-2])
+    xs[ 0, SYMS['T']] = 1
+    xs[ 0, SYMS['P']] = 1
+    xs[ 1, SYMS['B']] = 1
+    xs[-3, SYMS[s[1]]] = 1
+    xs[-2, SYMS['E']] = 1
+    return xs
+
+
+def error_rate(network, xss, yss):
+    errs = 0
+    for xs, ys in zip(xss, yss):
+        outs = network.predict(xs) > 0.5
+        errs += np.abs(outs - ys).sum()
+    return errs
 
 
 if __name__ == '__main__':
     network = ocrolib.lstm.LSTM(len(SYMS), len(SYMS))  # 7 --> 7
-    network.setLearningRate(0.1)
+    network.setLearningRate(0.01)
 
-    for i in range(0, 5000):
-        seq = make_reber()
+    test_seqs = [make_embedded_reber() for i in range(0, 20)]
+    test_xs = [str_to_vec(seq) for seq in test_seqs]
+    test_ys = [str_to_next_embedded(seq) for seq in test_seqs]
+
+    for i in range(0, 20000):
+        seq = make_embedded_reber()
         xs = str_to_vec(seq)
-        ys = str_to_next(seq)
+        ys = str_to_next_embedded(seq)
         network.train(xs, ys)
         if i % 1000 == 1:
-            print '%5d iterations' % i
+            print '%5d iterations, %d errors' % (i, error_rate(network, test_xs, test_ys))
 
-    for i in range(0, 20):
-        seq = make_reber()
-        xs = str_to_vec(seq)
-        ys = str_to_next(seq)
+    for seq, xs, ys in zip(test_seqs, test_xs, test_ys):
         outs = network.predict(xs) > 0.5
         errs = np.abs(outs - ys).sum()
         print '%s: %d errors' % (seq, errs)
         if errs > 0:
-            print vec_to_str(ys)
-            print vec_to_str(outs)
+            print '  %s' % vec_to_str(ys)
+            print '  %s' % vec_to_str(outs)
