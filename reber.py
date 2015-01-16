@@ -3,7 +3,6 @@
 
 import random
 import numpy as np
-import ocrolib
 
 
 # State transition table
@@ -64,15 +63,15 @@ def str_to_next(s):
 
 def vec_to_str(xs):
     """Given a matrix, return a Reber string (with choices)."""
-    out = ''
+    groups = []
     for i in range(0, xs.shape[0]):
         vs = np.nonzero(xs[i,:])[0]
         chars = [IDX_TO_SYM[v] for v in vs]
         if len(chars) == 1:
-            out += chars[0]
+            groups.append(chars[0])
         else:
-            out += '{%s}' % ','.join(chars)
-    return out
+            groups.append('{%s}' % ','.join(chars))
+    return '\t'.join(groups)
 
 
 def str_to_next_embedded(s):
@@ -110,6 +109,7 @@ def mse(network, xss, yss):
 
 
 if __name__ == '__main__':
+    import ocrolib
     network = ocrolib.lstm.LSTM(len(SYMS), len(SYMS))  # 7 --> 7
     alpha = 0.1
     alpha_decay = 0.9999
